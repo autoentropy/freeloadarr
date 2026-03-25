@@ -23,6 +23,14 @@
 
 ---
 
+## Requirements
+Plex
+Tautulli
+Docker
+Flask
+
+---
+
 ## 🐳 Docker Compose (Recommended)
 
 ```yaml
@@ -152,16 +160,6 @@ You can adjust detection sensitivity in the UI:
 - Watch threshold
 - Lookback window
 - Polling interval
----
-
-## 🔔 Notifications
-
-Supports:
-
-- Pushbullet alerts
-- Discord webhooks
-- Daily reports
-
 ---
 
 ## ⚠️ Disclaimer
