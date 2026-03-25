@@ -26,7 +26,6 @@
 ## 🐳 Docker Compose (Recommended)
 
 ```yaml
-version: "3.8"
 
 services:
   freeloadarr:
@@ -36,7 +35,7 @@ services:
     ports:
       - "11012:11012"
     volumes:
-      - /home/jaeger/docker/media-stack/config/freeloadarr:/config
+      - ./config:/config
     environment:
       - TZ=America/Phoenix
 ```
