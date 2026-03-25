@@ -4,7 +4,9 @@
   <img src="static/logo.png" width="120" />
 </p>
 
-**Freeloadarr** is a Plex account sharing detection and monitoring tool inspired by the *arr ecosystem.
+<p align="center">
+  Detect and monitor Plex account sharing using Tautulli data.
+</p>
 
 ---
 
@@ -14,28 +16,40 @@
   - IP address patterns
   - Device usage
   - Concurrent sessions
-- Scoring system (1 / 7 / 14 / 30 day windows)
+- Rolling threat scoring (1 / 7 / 14 / 30 day windows)
 - Web UI for monitoring users and threat levels
 - Push notifications (Pushbullet / Discord)
-- Daily reporting
+- Daily automated reporting
 
 ---
 
-## ⚙️ Requirements
+## 🐳 Docker Compose (Recommended)
 
-- Plex
-- Tautulli
-- Docker
+```yaml
+version: "3.8"
+
+services:
+  freeloadarr:
+    image: freeloadarr:latest
+    container_name: freeloadarr
+    restart: unless-stopped
+    ports:
+      - "11012:11012"
+    volumes:
+      - /home/jaeger/docker/media-stack/config/freeloadarr:/config
+    environment:
+      - TZ=America/Phoenix
+```
+
+### Run
+
+```bash
+docker compose up -d
+```
 
 ---
 
-## ⚠️ Disclaimer
-
-Freeloadarr is not affiliated with Plex or the *arr ecosystem.
-
----
-
-## 🚀 Quick Start
+## 🚀 Quick Start (Manual Build)
 
 ```bash
 git clone https://github.com/autoentropy/freeloadarr.git
@@ -50,20 +64,63 @@ docker run -d \
 
 ---
 
-## 💡 About This Project
+## ⚙️ Configuration
 
-I am not a professional developer — I built Freeloadarr to solve a real problem I was having with Plex account sharing.
+Configure via the web UI:
 
-This project was created with the help of AI and a lot of iteration, testing, and refinement. While it is working well for my use case, I know there is plenty of room for improvement.
-
-If you are a developer and see ways to improve the code, structure, performance, or features, I would greatly appreciate your feedback or contributions.
+- **Tautulli URL**
+- **Tautulli API Key**
+- Notification settings (Pushbullet / Discord)
+- Detection thresholds
+- Lookback window
 
 ---
 
-## 🤝 Contributing / Feedback
+## 📊 How Scoring Works
+
+Freeloadarr assigns a score based on recent activity:
+
+- **0–39** → Normal  
+- **40–69** → Watch  
+- **70+** → Likely sharing  
+
+Scores are calculated across:
+- 1 day (most recent signal)
+- 7 day
+- 14 day
+- 30 day
+
+---
+
+## 🔔 Notifications
+
+Supports:
+
+- Pushbullet alerts
+- Discord webhooks
+- Daily reports
+
+---
+
+## ⚠️ Disclaimer
+
+Freeloadarr is not affiliated with Plex or the *arr ecosystem.
+
+---
+
+## 🤝 Contributing
 
 - Open an issue for bugs or suggestions  
-- Submit a pull request if you'd like to improve something  
-- Share ideas for features or improvements  
+- Submit a pull request  
+- Share feature ideas  
 
-Even small improvements are welcome.
+All contributions are welcome.
+
+---
+
+## 💡 About
+
+Freeloadarr was built to solve real-world Plex account sharing issues.
+
+This project was developed with the help of AI and iterative testing.  
+There is plenty of room for improvement—feedback is encouraged.
