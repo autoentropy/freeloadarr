@@ -109,7 +109,7 @@ Freeloadarr is not affiliated with Plex or the *arr ecosystem.
 
 ## 💡 About This Project
 
-I am not a professional developer — I built Freeloadarr to solve a real problem I was having with Plex account sharing on my server. 
+I am not a developer. I built Freeloadarr to solve a real problem I was having with Plex account sharing on my server. 
 
 This project was created with the help of AI and a lot of iteration, testing, and refinement. While it is working well for my use case, I know there is plenty of room for improvement.
 
