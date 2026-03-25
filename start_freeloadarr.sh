@@ -4,8 +4,8 @@ set -eu
 DB_PATH="${DB_PATH:-/config/freeloadarr.db}"
 WEBUI_HOST="${WEBUI_HOST:-0.0.0.0}"
 WEBUI_PORT="${WEBUI_PORT:-11012}"
-DETECTOR_SCRIPT="${DETECTOR_SCRIPT:-/config/freeloadarr_detector.py}"
-WEBUI_SCRIPT="${WEBUI_SCRIPT:-/config/freeloadarr_webui.py}"
+DETECTOR_SCRIPT="${DETECTOR_SCRIPT:-/app/freeloadarr_detector.py}"
+WEBUI_SCRIPT="${WEBUI_SCRIPT:-/app/freeloadarr_webui.py}"
 
 export DB_PATH WEBUI_HOST WEBUI_PORT
 
@@ -33,7 +33,7 @@ echo "Starting Freeloadarr detector..."
 python "$DETECTOR_SCRIPT" &
 DETECTOR_PID=$!
 
-echo "Starting Freeloadarr web UI on port $WEBUI_PORT..."
+echo "Starting Freeloadarr web UI on ${WEBUI_HOST}:${WEBUI_PORT}..."
 python "$WEBUI_SCRIPT" &
 WEBUI_PID=$!
 
