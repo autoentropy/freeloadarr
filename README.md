@@ -77,18 +77,81 @@ Configure via the web UI:
 
 ## 📊 How Scoring Works
 
-Freeloadarr assigns a score based on recent activity:
+Freeloadarr assigns a dynamic score to each user based on recent Plex activity observed via Tautulli.
 
-- **0–39** → Normal  
-- **40–69** → Watch  
-- **70+** → Likely sharing  
+Scores are calculated across rolling time windows:
+- **1 day** (most recent signal)
+- **7 days**
+- **14 days**
+- **30 days**
 
-Scores are calculated across:
-- 1 day (most recent signal)
-- 7 day
-- 14 day
-- 30 day
+The 1-day score is treated as the most important indicator of current behavior.
 
+---
+
+## 🧠 Detection Signals
+
+Points are added when suspicious activity is detected:
+
+### 🌍 Multiple IP Addresses
+- Different external IPs within a short window → **+20 points**
+- Frequent IP switching across sessions → **+10 points per occurrence**
+
+### 📱 Device Anomalies
+- Multiple device types in close succession → **+10 points**
+- Unusual or new device patterns → **+5–10 points**
+
+### ▶️ Concurrent Streams
+- Simultaneous streams from different locations → **+25 points**
+- Overlapping sessions → **+15 points**
+
+### ⏱️ Rapid Session Changes
+- Rapid start/stop across IPs/devices → **+5–15 points**
+
+---
+
+## ➕ Scoring Behavior
+
+- Points accumulate as events occur
+- Repeated behavior increases score progressively
+- Older activity decays over time
+- Scores are continuously recalculated using rolling windows
+
+---
+
+## 🚦 Score Thresholds
+
+| Score Range | Status           |
+|------------|------------------|
+| 0 – 39     | Normal           |
+| 40 – 69    | Watch            |
+| 70+        | Likely Sharing   |
+
+---
+
+## 🔔 Alerts
+
+Alerts are triggered when:
+
+- A user crosses a configured threshold
+- A score increases significantly
+- A new detection event occurs
+
+Supported notifications:
+- Pushbullet
+- Discord webhooks
+- Daily summary reports
+
+---
+
+## ⚙️ Customization
+
+You can adjust detection sensitivity in the UI:
+
+- Likely sharing threshold
+- Watch threshold
+- Lookback window
+- Polling interval
 ---
 
 ## 🔔 Notifications
