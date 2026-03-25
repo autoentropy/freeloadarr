@@ -24,10 +24,10 @@
 ---
 
 ## Requirements
-Plex
-Tautulli
-Docker
-Flask
+- Plex
+- Tautulli
+- Docker
+- Flask
 
 ---
 
