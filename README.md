@@ -29,7 +29,7 @@
 
 services:
   freeloadarr:
-    image: freeloadarr:latest
+    image: ghcr.io/autoentropy/freeloadarr:latest
     container_name: freeloadarr
     restart: unless-stopped
     ports:
