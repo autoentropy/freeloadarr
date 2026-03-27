@@ -23,6 +23,18 @@
 
 ---
 
+## 📸 Screenshots
+
+| Dashboard | Users |
+|----------|------|
+| ![](docs/screenshots/dashboard.png) | ![](docs/screenshots/users.png) |
+
+| Alerts | Settings |
+|--------|---------|
+| ![](docs/screenshots/alerts.png) | ![](docs/screenshots/settings.png) |## 📸 Screenshots
+
+---
+
 ## Requirements
 - Plex
 - Tautulli
