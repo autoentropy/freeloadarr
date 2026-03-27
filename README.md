@@ -1,4 +1,7 @@
 # Freeloadarr
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Docker](https://img.shields.io/badge/docker-supported-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 <p align="center">
   <img src="static/logo.png" width="120" />
@@ -25,13 +28,15 @@
 
 ## 📸 Screenshots
 
+### Dashboard & Users
 | Dashboard | Users |
 |----------|------|
 | ![](docs/screenshots/dashboard.png) | ![](docs/screenshots/users.png) |
 
+### Alerts & Settings
 | Alerts | Settings |
 |--------|---------|
-| ![](docs/screenshots/alerts.png) | ![](docs/screenshots/settings.png) |## 📸 Screenshots
+| ![](docs/screenshots/alerts.png) | ![](docs/screenshots/settings.png) |
 
 ---
 
