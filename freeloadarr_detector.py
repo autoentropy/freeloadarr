@@ -716,50 +716,56 @@ class Detector:
             if self._skip_user(username):
                 continue
 
+            one_day_score = 0
+            one_day_summary = None
+
             for window_days in sorted({1, 7, 14, 30, self.cfg.lookback_days}):
                 since_ts = ts_now() - (window_days * 86400)
                 window_score, window_summary = self.score_user(username, since_ts)
                 self.db.record_score(username, window_days, window_score, window_summary["classification"])
 
-            score, summary = self.score_user(username, main_since_ts)
-            if score < self.cfg.watch_threshold:
+                if window_days == 1:
+                    one_day_score = window_score
+                    one_day_summary = window_summary
+
+            if not one_day_summary or one_day_score < self.cfg.watch_threshold:
                 continue
 
             fingerprint = (
-                f"window-score:{username}:{dt.datetime.utcfromtimestamp(main_since_ts).date()}:"
-                f"{score}:{summary['distinct_public_ips']}:{summary['distinct_devices']}:{summary['overlap_events']}"
+                f"one-day-score:{username}:{dt.datetime.utcfromtimestamp(ts_now()).date()}:"
+                f"{one_day_score}:{one_day_summary['distinct_public_ips']}:"
+                f"{one_day_summary['distinct_devices']}:{one_day_summary['overlap_events']}"
             )
             created = self.db.add_alert(
                 username=username,
-                user_id=summary.get("user_id"),
-                alert_type="rolling_window_score",
-                score=score,
-                details=json.dumps(summary, ensure_ascii=False),
+                user_id=one_day_summary.get("user_id"),
+                alert_type="one_day_score",
+                score=one_day_score,
+                details=json.dumps(one_day_summary, ensure_ascii=False),
                 fingerprint=fingerprint,
             )
             if created:
-                self._maybe_notify(username, score, "rolling_window_score", summary)
+                self._maybe_notify(username, one_day_score, "one_day_score", one_day_summary)
 
     def _maybe_notify(self, username: str, score: int, alert_type: str, details: dict[str, Any]) -> None:
         classification = classify_score(score, self.cfg.likely_threshold, self.cfg.watch_threshold)
-        last_score_row = self.db.fetch_last_recorded_score(username, self.cfg.lookback_days)
+        last_score_row = self.db.fetch_last_recorded_score(username, 1)
         previous_score = int(last_score_row["score"]) if last_score_row else None
 
-        should_notify = False
+        if score < self.cfg.watch_threshold:
+            return
+
+        already_at_or_above_watch = previous_score is not None and previous_score >= self.cfg.watch_threshold
+        if already_at_or_above_watch:
+            return
+
+        should_notify = True
         reasons = []
 
-        if self.cfg.notify_on_first_alert and previous_score is None:
-            should_notify = True
-            reasons.append("first alert")
-        if self.cfg.notify_on_likely and score >= self.cfg.likely_threshold:
-            should_notify = True
-            reasons.append("likely threshold")
-        if self.cfg.notify_on_score_increase and previous_score is not None and score > previous_score:
-            should_notify = True
-            reasons.append("score increase")
-
-        if not should_notify:
-            return
+        if score >= self.cfg.likely_threshold:
+            reasons.append("likely sharing threshold reached")
+        else:
+            reasons.append("watch threshold reached")
 
         body_lines = [
             f"User: {username}",
@@ -977,22 +983,8 @@ class Detector:
         return "\n".join(lines).rstrip() + "\n"
 
     def deliver_report(self, report_text: str) -> None:
-        delivered = False
-        if self.cfg.discord_webhook_url:
-            try:
-                self.notifier.discord(report_text)
-                delivered = True
-            except Exception:
-                self.log.exception("Failed to send report to Discord")
-        if self.cfg.pushbullet_access_token:
-            try:
-                self.notifier.pushbullet("Freeloadarr Daily Report", report_text[:4000])
-                delivered = True
-            except Exception:
-                self.log.exception("Failed to send report to Pushbullet")
-        if not delivered:
-            self.log.info("No delivery destination set; printing report instead")
-            print(report_text)
+        self.log.info("Daily report generated, but automatic report delivery is disabled.")
+        print(report_text)
 
 
 # -----------------------------
