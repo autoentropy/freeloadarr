@@ -6,6 +6,10 @@ This version supports DB-backed settings so the web UI can update:
 - TAUTULLI_URL
 - TAUTULLI_API_KEY
 - PUSHBULLET_ACCESS_TOKEN
+- GOTIFY_URL
+- GOTIFY_TOKEN
+- GOTIFY_PRIORITY
+- APPRISE_URLS
 - LOOKBACK_DAYS
 - LIKELY_THRESHOLD
 - WATCH_THRESHOLD
@@ -33,6 +37,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
+
+try:
+    import apprise
+except Exception:  # Apprise is optional unless APPRISE_URLS are configured.
+    apprise = None
 
 
 # -----------------------------
@@ -111,6 +120,10 @@ class Config:
     report_hour: int = int(os.getenv("REPORT_HOUR", "8"))
     discord_webhook_url: Optional[str] = os.getenv("DISCORD_WEBHOOK_URL")
     pushbullet_access_token: Optional[str] = os.getenv("PUSHBULLET_ACCESS_TOKEN")
+    gotify_url: Optional[str] = os.getenv("GOTIFY_URL")
+    gotify_token: Optional[str] = os.getenv("GOTIFY_TOKEN")
+    gotify_priority: int = int(os.getenv("GOTIFY_PRIORITY", "5"))
+    apprise_urls: Optional[str] = os.getenv("APPRISE_URLS")
     exempt_users: set[str] = None
     known_home_ips: dict[str, set[str]] = None
     trust_private_ips: bool = env_bool("TRUST_PRIVATE_IPS", True)
@@ -158,6 +171,10 @@ class Config:
             report_hour=int(db_settings.get("report_hour") or os.getenv("REPORT_HOUR", "8")),
             discord_webhook_url=db_settings.get("discord_webhook_url") or os.getenv("DISCORD_WEBHOOK_URL"),
             pushbullet_access_token=db_settings.get("pushbullet_access_token") or os.getenv("PUSHBULLET_ACCESS_TOKEN"),
+            gotify_url=db_settings.get("gotify_url") or os.getenv("GOTIFY_URL"),
+            gotify_token=db_settings.get("gotify_token") or os.getenv("GOTIFY_TOKEN"),
+            gotify_priority=int(db_settings.get("gotify_priority") or os.getenv("GOTIFY_PRIORITY", "5")),
+            apprise_urls=db_settings.get("apprise_urls") or os.getenv("APPRISE_URLS"),
             exempt_users=exempt_users,
             known_home_ips=known_home_ips,
             trust_private_ips=parse_bool(db_settings.get("trust_private_ips"), env_bool("TRUST_PRIVATE_IPS", True)),
@@ -565,6 +582,38 @@ class Notifier:
         )
         response.raise_for_status()
 
+    def gotify(self, title: str, body: str) -> None:
+        gotify_url = (self.cfg.gotify_url or "").rstrip("/")
+        token = self.cfg.gotify_token
+        if not gotify_url or not token:
+            return
+
+        response = requests.post(
+            f"{gotify_url}/message",
+            params={"token": token},
+            json={
+                "title": title,
+                "message": body,
+                "priority": self.cfg.gotify_priority,
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
+
+    def apprise(self, title: str, body: str) -> None:
+        urls_raw = self.cfg.apprise_urls or ""
+        urls = [line.strip() for line in urls_raw.replace(",", "\n").splitlines() if line.strip()]
+        if not urls:
+            return
+        if apprise is None:
+            raise RuntimeError("APPRISE_URLS is configured, but the apprise package is not installed.")
+
+        notifier = apprise.Apprise()
+        for url in urls:
+            notifier.add(url)
+        if not notifier.notify(title=title, body=body):
+            raise RuntimeError("Apprise did not successfully deliver the notification to any configured target.")
+
     def discord(self, text: str) -> None:
         if not self.cfg.discord_webhook_url:
             return
@@ -589,6 +638,19 @@ class Notifier:
                 timeout=30,
             )
             r.raise_for_status()
+
+    def send_all(self, title: str, body: str) -> None:
+        channels = [
+            ("Pushbullet", lambda: self.pushbullet(title, body)),
+            ("Gotify", lambda: self.gotify(title, body)),
+            ("Apprise", lambda: self.apprise(title, body)),
+            ("Discord", lambda: self.discord(f"{title}\n\n{body}")),
+        ]
+        for channel_name, send_func in channels:
+            try:
+                send_func()
+            except Exception:
+                self.log.exception("Failed to send %s notification", channel_name)
 
 
 # -----------------------------
@@ -784,10 +846,7 @@ class Detector:
                 body_lines.append("Public IPs: " + ", ".join(details["public_ips"][:6]))
 
         message = "\n".join(body_lines)
-        try:
-            self.notifier.pushbullet(f"Freeloadarr: {username}", message)
-        except Exception:
-            self.log.exception("Failed to send Pushbullet notification")
+        self.notifier.send_all(f"Freeloadarr: {username}", message)
 
     def score_user(self, username: str, since_ts: int) -> Tuple[int, Dict[str, Any]]:
         sessions = self.db.fetch_sessions_for_user(username, since_ts)

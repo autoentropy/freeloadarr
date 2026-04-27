@@ -5,9 +5,9 @@ Flask web UI for the Plex share detector.
 Adds:
 - Settings page
 - DB-backed app settings
-- Optional Pushbullet + Tautulli credentials storage
+- Optional Pushbullet, Gotify, Apprise, Discord + Tautulli credentials storage
 - Score thresholds and notification toggles
-- Run report / test Pushbullet actions
+- Run report / test notification actions
 - User score history chart-ready endpoint
 """
 
@@ -24,6 +24,11 @@ from datetime import datetime
 from typing import Any
 
 import requests
+
+try:
+    import apprise
+except Exception:  # Apprise is optional unless APPRISE_URLS are configured.
+    apprise = None
 from flask import Flask, abort, flash, jsonify, redirect, render_template_string, request, url_for
 
 DB_PATH = os.getenv("DB_PATH", "/config/freeloadarr.db")
@@ -456,6 +461,10 @@ def get_all_settings() -> dict[str, str]:
         "tautulli_url": os.getenv("TAUTULLI_URL", ""),
         "tautulli_api_key": os.getenv("TAUTULLI_API_KEY", ""),
         "pushbullet_access_token": os.getenv("PUSHBULLET_ACCESS_TOKEN", ""),
+        "gotify_url": os.getenv("GOTIFY_URL", ""),
+        "gotify_token": os.getenv("GOTIFY_TOKEN", ""),
+        "gotify_priority": os.getenv("GOTIFY_PRIORITY", "5"),
+        "apprise_urls": os.getenv("APPRISE_URLS", ""),
         "discord_webhook_url": os.getenv("DISCORD_WEBHOOK_URL", ""),
         "lookback_days": os.getenv("LOOKBACK_DAYS", "14"),
         "poll_seconds": os.getenv("POLL_SECONDS", "300"),
@@ -1034,6 +1043,26 @@ def settings_page():
             <div class="muted" style="margin-top:6px">Current: {mask_secret(settings.get('pushbullet_access_token','')) or 'not set'}</div>
           </div>
           <div class="field">
+            <label class="muted">Gotify URL</label>
+            <input type="text" name="gotify_url" placeholder="https://gotify.example.com" value="{settings.get('gotify_url','')}">
+          </div>
+          <div class="field-inline">
+            <div class="field">
+              <label class="muted">Gotify App Token</label>
+              <input type="password" name="gotify_token" value="{settings.get('gotify_token','')}">
+              <div class="muted" style="margin-top:6px">Current: {mask_secret(settings.get('gotify_token','')) or 'not set'}</div>
+            </div>
+            <div class="field">
+              <label class="muted">Gotify Priority</label>
+              <input type="number" min="0" max="10" name="gotify_priority" value="{settings.get('gotify_priority','5')}">
+            </div>
+          </div>
+          <div class="field">
+            <label class="muted">Apprise URLs</label>
+            <textarea name="apprise_urls" rows="4" placeholder="One Apprise URL per line, or comma-separated. Example: gotify://host/token">{settings.get('apprise_urls','')}</textarea>
+            <div class="muted" style="margin-top:6px">Current: {'set' if settings.get('apprise_urls','').strip() else 'not set'}</div>
+          </div>
+          <div class="field">
             <label class="muted">Discord Webhook URL</label>
             <input type="password" name="discord_webhook_url" value="{settings.get('discord_webhook_url','')}">
             <div class="muted" style="margin-top:6px">Current: {mask_secret(settings.get('discord_webhook_url','')) or 'not set'}</div>
@@ -1100,6 +1129,12 @@ def settings_page():
         <form method="post" action="{url_for('test_pushbullet')}" style="margin:0;">
           <button type="submit">Send test Pushbullet</button>
         </form>
+        <form method="post" action="{url_for('test_gotify')}" style="margin:0;">
+          <button type="submit">Send test Gotify</button>
+        </form>
+        <form method="post" action="{url_for('test_apprise')}" style="margin:0;">
+          <button type="submit">Send test Apprise</button>
+        </form>
         <form method="post" action="{url_for('test_discord')}" style="margin:0;">
           <button type="submit">Send test Discord</button>
         </form>
@@ -1140,6 +1175,10 @@ def save_settings():
             "tautulli_url",
             "tautulli_api_key",
             "pushbullet_access_token",
+            "gotify_url",
+            "gotify_token",
+            "gotify_priority",
+            "apprise_urls",
             "discord_webhook_url",
         ]
         for key in keys:
@@ -1204,6 +1243,61 @@ def test_pushbullet():
         flash("Pushbullet test sent.")
     except Exception as exc:
         flash(f"Pushbullet test failed: {exc}")
+
+    return redirect(url_for("settings_page"))
+
+
+@app.post("/settings/test-gotify")
+def test_gotify():
+    gotify_url = (get_setting("gotify_url", "") or "").rstrip("/")
+    token = get_setting("gotify_token", "")
+    priority = int(get_setting("gotify_priority", "5") or "5")
+
+    if not gotify_url or not token:
+        flash("Gotify URL and app token are required.")
+        return redirect(url_for("settings_page"))
+
+    try:
+        response = requests.post(
+            f"{gotify_url}/message",
+            params={"token": token},
+            json={
+                "title": APP_NAME,
+                "message": "Test notification from your settings page.",
+                "priority": priority,
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
+        flash("Gotify test sent.")
+    except Exception as exc:
+        flash(f"Gotify test failed: {exc}")
+
+    return redirect(url_for("settings_page"))
+
+
+@app.post("/settings/test-apprise")
+def test_apprise():
+    urls_raw = get_setting("apprise_urls", "") or ""
+    urls = [line.strip() for line in urls_raw.replace(",", "\n").splitlines() if line.strip()]
+
+    if not urls:
+        flash("At least one Apprise URL is required.")
+        return redirect(url_for("settings_page"))
+    if apprise is None:
+        flash("Apprise package is not installed. Rebuild the Docker image with the updated Dockerfile.")
+        return redirect(url_for("settings_page"))
+
+    try:
+        notifier = apprise.Apprise()
+        for url in urls:
+            notifier.add(url)
+        if notifier.notify(title=APP_NAME, body="Test notification from your settings page."):
+            flash("Apprise test sent.")
+        else:
+            flash("Apprise test failed: no configured target accepted the notification.")
+    except Exception as exc:
+        flash(f"Apprise test failed: {exc}")
 
     return redirect(url_for("settings_page"))
 

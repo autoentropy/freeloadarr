@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-RUN pip install flask requests
+RUN pip install flask requests apprise
 
 COPY freeloadarr_detector.py /app/
 COPY freeloadarr_webui.py /app/
